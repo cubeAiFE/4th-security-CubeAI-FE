@@ -1,4 +1,4 @@
-# 🧊 [Cube AI](https://4th-security-cube-ai-fe.vercel.app)
+# 🧊 [Cube AI](https://www.youtube.com/watch?v=75JcKXWn3EE)
 
 > **놓고, 만들고, 내 것으로 Make AI Your Playground**  
 > AI를 처음 배우는 사람도, 개념부터 실습까지 한 번에 익히고 바로 활용할 수 있습니다.
