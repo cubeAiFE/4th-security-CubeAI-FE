@@ -2,7 +2,7 @@ import Header from '@/components/layout/Header';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 
-const SWAGGER_JSON_URL = 'https://api.example.com/openapi.json';
+const SWAGGER_JSON_URL = '/openapi.json';
 
 export default function ApiDocs() {
   return (

@@ -1,0 +1,698 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI BlockCoding API",
+    "version": "2.1.0",
+    "description": "AI 블록코딩(블록 설정→Python 코드 생성/저장, 단계별 실행, SSE 로그 스트리밍, 데이터셋 정보 조회, 결과 조회) API"
+  },
+  "servers": [
+    {
+      "url": "http://211.188.56.255:9022"
+    }
+  ],
+  "tags": [
+    { "name": "Pages" },
+    { "name": "Code" },
+    { "name": "Run" },
+    { "name": "Logs" },
+    { "name": "Data" },
+    { "name": "Download" },
+    { "name": "Result" },
+    { "name": "Debug" }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Pages"],
+        "summary": "Root redirect to /app",
+        "operationId": "getRoot",
+        "responses": {
+          "302": { "description": "Redirect to /app" }
+        }
+      }
+    },
+    "/app": {
+      "get": {
+        "tags": ["Pages"],
+        "summary": "Main application page",
+        "operationId": "getApp",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/UserId" },
+            "description": "없으면 'anonymous'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "HTML index page",
+            "content": {
+              "text/html": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid user_id",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/convert": {
+      "options": {
+        "tags": ["Code"],
+        "summary": "CORS preflight",
+        "operationId": "optionsConvert",
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      },
+      "post": {
+        "tags": ["Code"],
+        "summary": "Convert block settings to Python code",
+        "operationId": "postConvert",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConvertRequest" }
+            },
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/ConvertRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generated Python code (text)",
+            "content": {
+              "text/plain; charset=utf-8": {
+                "schema": { "type": "string" }
+              },
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (missing/invalid params)",
+            "content": {
+              "text/plain; charset=utf-8": { "schema": { "type": "string" } },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "text/plain; charset=utf-8": { "schema": { "type": "string" } },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "/run/{stage}": {
+      "post": {
+        "tags": ["Run"],
+        "summary": "Run a stage script",
+        "operationId": "postRunStage",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/RunStage" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RunRequest" }
+            },
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/RunRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Run started or failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RunResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "/logs/stream": {
+      "get": {
+        "tags": ["Logs"],
+        "summary": "Stream logs via Server-Sent Events",
+        "operationId": "getLogsStream",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/UserId" }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/RunStage" },
+            "description": "기본값: train"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" },
+                "examples": {
+                  "sample": {
+                    "value": "data: [pre][2025-01-01 12:00:00] Processing started...\\n\\ndata: [pre][2025-01-01 12:00:01] Loading data...\\n"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": { "schema": { "type": "string" } },
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/data-info": {
+      "options": {
+        "tags": ["Data"],
+        "summary": "CORS preflight",
+        "operationId": "optionsDataInfo",
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      },
+      "get": {
+        "tags": ["Data"],
+        "summary": "Get CSV dataset information (public, no user_id)",
+        "operationId": "getDataInfo",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "CSV 파일명"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/DataInfoType" }
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "type=sample/images일 때 샘플 수"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dataset info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DataInfoResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/download/{stage}": {
+      "get": {
+        "tags": ["Download"],
+        "summary": "Download generated code or workspace ZIP",
+        "operationId": "getDownload",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/DownloadStage" }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/UserId" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File download",
+            "content": {
+              "application/octet-stream": { "schema": { "type": "string", "format": "binary" } },
+              "application/zip": { "schema": { "type": "string", "format": "binary" } },
+              "text/x-python": { "schema": { "type": "string" } }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": { "schema": { "type": "string" } },
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain": { "schema": { "type": "string" } },
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/result": {
+      "options": {
+        "tags": ["Result"],
+        "summary": "CORS preflight",
+        "operationId": "optionsResult",
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      },
+      "get": {
+        "tags": ["Result"],
+        "summary": "Get final evaluation result as JSON (with base64 PNG fields)",
+        "operationId": "getResult",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/UserId" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Result payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResultResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "user_id missing/invalid",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "/result/status": {
+      "options": {
+        "tags": ["Result"],
+        "summary": "CORS preflight",
+        "operationId": "optionsResultStatus",
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      },
+      "get": {
+        "tags": ["Result"],
+        "summary": "Check existence of result files",
+        "operationId": "getResultStatus",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/UserId" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status payload",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResultStatusResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/debug/dataset": {
+      "get": {
+        "tags": ["Debug"],
+        "summary": "Dataset directory debug info (dev only)",
+        "operationId": "getDebugDataset",
+        "responses": {
+          "200": {
+            "description": "Debug info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DebugDatasetResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50,
+        "pattern": "^[a-zA-Z0-9_-]+$",
+        "description": "영문/숫자/_/- 만 허용 (1~50자)"
+      },
+      "Stage": {
+        "type": "string",
+        "enum": ["pre", "model", "train", "eval", "all"]
+      },
+      "RunStage": {
+        "type": "string",
+        "enum": ["pre", "model", "train", "eval"]
+      },
+      "DownloadStage": {
+        "type": "string",
+        "enum": ["pre", "model", "train", "eval", "all"]
+      },
+      "DataInfoType": {
+        "type": "string",
+        "enum": ["shape", "structure", "sample", "images"]
+      },
+      "ConvertRequest": {
+        "type": "object",
+        "required": ["user_id", "stage"],
+        "properties": {
+          "user_id": { "$ref": "#/components/schemas/UserId" },
+          "stage": { "$ref": "#/components/schemas/Stage" },
+
+          "dataset": { "type": "string", "nullable": true },
+          "is_test": {
+            "type": "string",
+            "default": "false",
+            "description": "문자열 'true'/'false' 또는 폼 값"
+          },
+          "testdataset": { "type": "string", "nullable": true },
+          "a": { "type": "number", "default": 80, "description": "훈련 데이터 비율(%)" },
+          "drop_na": { "type": "boolean", "nullable": true },
+          "drop_bad": { "type": "boolean", "nullable": true },
+          "min_label": { "type": "number", "default": 0 },
+          "max_label": { "type": "number", "default": 9 },
+          "split_xy": { "type": "boolean", "nullable": true },
+          "resize_n": { "type": "number", "default": 28 },
+          "augment_method": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["rotate", "hflip", "vflip", "translate"]
+          },
+          "augment_param": { "type": "number", "nullable": true },
+          "normalize": { "type": "string", "nullable": true, "enum": ["0-1", "-1-1"] },
+
+          "input_w": { "type": "number", "default": 28 },
+          "input_h": { "type": "number", "default": 28 },
+          "input_c": { "type": "number", "default": 1 },
+          "conv1_filters": { "type": "number", "default": 32 },
+          "conv1_kernel": { "type": "number", "default": 3 },
+          "conv1_padding": { "type": "string", "default": "same" },
+          "conv1_activation": { "type": "string", "default": "relu" },
+          "pool1_type": { "type": "string", "default": "max" },
+          "pool1_size": { "type": "number", "default": 2 },
+          "pool1_stride": { "type": "number", "default": 2 },
+          "use_conv2": { "type": "boolean", "nullable": true },
+          "conv2_filters": { "type": "number", "default": 64 },
+          "conv2_kernel": { "type": "number", "default": 3 },
+          "conv2_activation": { "type": "string", "default": "relu" },
+          "use_dropout": { "type": "boolean", "nullable": true },
+          "dropout_p": { "type": "number", "default": 0.25 },
+          "dense_units": { "type": "number", "default": 128 },
+          "dense_activation": { "type": "string", "default": "relu" },
+          "num_classes": { "type": "number", "default": 10 },
+
+          "loss_method": { "type": "string", "default": "CrossEntropy" },
+          "optimizer_method": { "type": "string", "default": "Adam" },
+          "learning_rate": { "type": "number", "default": 0.001 },
+          "epochs": { "type": "number", "default": 10 },
+          "batch_size": { "type": "number", "default": 64 },
+          "patience": { "type": "number", "default": 3 },
+
+          "metrics": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": ["accuracy"]
+          },
+          "average": { "type": "string", "default": "macro" },
+          "topk_k": { "type": "number", "default": 3 },
+          "show_classification_report": { "type": "boolean", "nullable": true },
+          "show_confusion_matrix": { "type": "boolean", "nullable": true },
+          "cm_normalize": { "type": "boolean", "nullable": true },
+          "viz_samples": { "type": "number", "default": 10 },
+          "viz_mis": { "type": "number", "default": 5 },
+          "eval_batch": { "type": "number", "default": 128 },
+          "class_names": {
+            "type": "string",
+            "nullable": true,
+            "description": "쉼표 구분 클래스명"
+          },
+          "force_cpu": { "type": "boolean", "nullable": true }
+        },
+        "additionalProperties": true
+      },
+      "RunRequest": {
+        "type": "object",
+        "required": ["user_id"],
+        "properties": {
+          "user_id": { "$ref": "#/components/schemas/UserId" }
+        },
+        "additionalProperties": false
+      },
+      "RunResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["ok", "pid"],
+            "properties": {
+              "ok": { "type": "boolean", "enum": [true] },
+              "pid": { "type": "integer" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["error"],
+            "properties": {
+              "error": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ResultResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "user_id",
+          "accuracy",
+          "confusion_matrix",
+          "misclassified_samples",
+          "prediction_samples",
+          "message"
+        ],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "user_id": { "$ref": "#/components/schemas/UserId" },
+          "accuracy": { "type": "number", "nullable": true, "minimum": 0, "maximum": 1 },
+          "confusion_matrix": {
+            "type": "string",
+            "nullable": true,
+            "description": "PNG base64 (no data URI prefix)"
+          },
+          "misclassified_samples": {
+            "type": "string",
+            "nullable": true,
+            "description": "PNG base64 (no data URI prefix)"
+          },
+          "prediction_samples": {
+            "type": "string",
+            "nullable": true,
+            "description": "PNG base64 (no data URI prefix)"
+          },
+          "message": { "type": "string" },
+          "warning": { "type": "string", "nullable": true }
+        },
+        "additionalProperties": false
+      },
+      "ResultStatusResponse": {
+        "type": "object",
+        "required": ["user_id", "ready", "files", "message"],
+        "properties": {
+          "user_id": { "$ref": "#/components/schemas/UserId" },
+          "ready": { "type": "boolean" },
+          "files": {
+            "type": "object",
+            "additionalProperties": { "type": "boolean" },
+            "description": "결과 파일 존재 여부 맵"
+          },
+          "message": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "DebugDatasetFileDetail": {
+        "type": "object",
+        "required": ["name", "size_mb", "rows", "cols", "columns"],
+        "properties": {
+          "name": { "type": "string" },
+          "size_mb": { "type": "number" },
+          "rows": { "type": "integer" },
+          "cols": { "type": "integer" },
+          "columns": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      },
+      "DebugDatasetResponse": {
+        "type": "object",
+        "required": ["dataset_dir", "dataset_dir_exists", "csv_files", "file_details"],
+        "properties": {
+          "dataset_dir": { "type": "string" },
+          "dataset_dir_exists": { "type": "boolean" },
+          "csv_files": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "file_details": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DebugDatasetFileDetail" }
+          }
+        },
+        "additionalProperties": true
+      },
+      "DataInfoResponse": {
+        "type": "object",
+        "description": "type에 따라 반환 필드가 달라질 수 있음",
+        "properties": {
+          "shape": {
+            "type": "object",
+            "properties": {
+              "rows": { "type": "integer" },
+              "cols": { "type": "integer" }
+            },
+            "additionalProperties": true
+          },
+          "structure": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "sample": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          },
+          "images": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "이미지 base64 목록 또는 빈 배열"
+          },
+          "error": { "type": "string", "nullable": true }
+        },
+        "additionalProperties": true
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        },
+        "required": ["error"],
+        "additionalProperties": true
+      }
+    }
+  }
+}
