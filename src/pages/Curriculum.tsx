@@ -1,96 +1,111 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import Cube from '@/assets/Cube.png';
-import Finished from '@/assets/icons/finish.png';
-import NotFinished from '@/assets/icons/not_finish.png';
 
-function ProgressBar({ value, width }: { value: number; width?: string }) {
-  const pct = Math.max(0, Math.min(100, value));
+import { stages } from '@/constants/Stages';
+import type { Topic, Stage } from '@/constants/Stages';
+
+const TopicSection: React.FC<{ topic: Topic; gradient: string }> = ({ topic, gradient }) => {
+  const [isOpen, setIsOpen] = useState(true);
+
   return (
-    <div
-      className={`h-6 rounded-full shadow-[0_0_3px_1px_rgba(0,144,251,0.8)] overflow-hidden bg-white ${width || 'w-64'}`}
-    >
+    <div className="mb-6">
       <div
-        className="h-full bg-sky-400 flex items-center justify-end pr-2 rounded-l-full"
-        style={{ width: `${pct}%` }}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={pct}
-        role="progressbar"
+        className={`flex items-center justify-between gap-3 p-4 bg-gradient-to-r ${gradient} text-white rounded-xl cursor-pointer transition-all hover:translate-x-1 shadow-md`}
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <span className="text-white text-[10px] font-bold">{pct}%</span>
+        <div className="flex items-center gap-3">
+          <span className="font-bold text-xl">{topic.number}.</span>
+          <span className="font-semibold text-lg">{topic.title}</span>
+        </div>
+        {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
       </div>
+
+      {isOpen && (
+        <div className="mt-2 p-4 pl-10 bg-gray-50 rounded-b-xl">
+          {topic.items.map((item, idx) => (
+            <div key={idx} className="flex items-start gap-3 py-2 text-gray-700">
+              <span className="text-purple-600 font-bold mt-1">→</span>
+              <span className="leading-relaxed">{item.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-}
+};
 
-function UnitCard({
-  title,
-  subtitle,
-  bullets,
-  completed,
-}: {
-  title: string;
-  subtitle?: string;
-  bullets?: string[];
-  completed?: boolean;
-}) {
+const StageCard: React.FC<{ stage: Stage; stageRef: React.RefObject<HTMLDivElement> }> = ({
+  stage,
+  stageRef,
+}) => {
   return (
-    <article className="w-64 flex flex-col gap-2">
-      <div className="h-36 bg-blue-50 rounded-md p-4 relative">
-        <h4 className="text-sky-500 text-xl font-bold leading-6">{title}</h4>
-        <div className="absolute bottom-3 right-3 size-9 grid place-items-center select-none">
-          <img
-            src={completed ? Finished : NotFinished}
-            alt={completed ? '완료' : '미완료'}
-            className="w-[100%] h-[100%] object-cover select-none"
-            draggable="false"
-          />
-        </div>
+    <div
+      ref={stageRef}
+      className="bg-white rounded-2xl p-8 shadow-2xl transition-all hover:-translate-y-2 hover:shadow-3xl"
+    >
+      <div className={`flex items-center gap-4 mb-6 pb-4 border-b-4 ${stage.headerColor}`}>
+        <span className="text-5xl">{stage.icon}</span>
+        <h2 className="text-3xl font-bold text-gray-800">
+          {stage.id}단계 - {stage.title}
+        </h2>
       </div>
-      {subtitle && (
-        <div className="h-11 flex items-center">
-          <p className="text-base font-bold truncate" title={subtitle}>
-            {subtitle}
-          </p>
-        </div>
-      )}
-      {bullets && bullets.length > 0 && (
-        <ul className="text-zinc-600 text-xs font-medium leading-5 list-disc pl-4">
-          {bullets.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
-        </ul>
-      )}
-    </article>
+
+      {stage.topics.map(topic => (
+        <TopicSection key={topic.number} topic={topic} gradient={stage.gradient} />
+      ))}
+    </div>
   );
-}
+};
 
-export default function CurriculumPage() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [activeStep, setActiveStep] = useState<number | null>(0);
-
-  const curriculumSteps = [
-    { title: 'AI의 개념 잡기', progress: 75, completed: true },
-    { title: '데이터 전처리 배우기', progress: 40, completed: true },
-    { title: '모델 구조 만들기', progress: 10, completed: false },
-    { title: '학습 및 실험', progress: 0, completed: false },
+export default function AILearningGuide() {
+  const [activeStage, setActiveStage] = useState(1);
+  const stageRefs = [
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLDivElement>(null),
   ];
 
-  const handleStepClick = (stepIndex: number) => {
-    // 모든 단계를 클릭 가능하게 함
-    setCurrentStep(stepIndex);
-
-    // 활성화된 단계를 설정 (토글이 아닌 단일 선택)
-    setActiveStep(stepIndex);
-
-    // 여기에 실제 페이지 이동 로직을 추가할 수 있습니다
-    console.log(`Step ${stepIndex + 1} clicked: ${curriculumSteps[stepIndex].title}`);
+  const scrollToStage = (stageId: number) => {
+    const ref = stageRefs[stageId - 1];
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveStage(stageId);
+    }
   };
 
+  useEffect(() => {
+    const observers = stageRefs.map((ref, index) => {
+      const observer = new IntersectionObserver(
+        entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              setActiveStage(index + 1);
+            }
+          });
+        },
+        { threshold: 0.5 },
+      );
+
+      if (ref.current) {
+        observer.observe(ref.current);
+      }
+
+      return observer;
+    });
+
+    return () => {
+      observers.forEach((observer, index) => {
+        if (stageRefs[index].current) {
+          observer.unobserve(stageRefs[index].current!);
+        }
+      });
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
+    <div className="min-h-screen text-zinc-900 bg-white">
       <Header />
       <div className="mx-auto max-w-100% px-6 pb-10 bg-sky-500">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10 items-center">
@@ -118,82 +133,47 @@ export default function CurriculumPage() {
             </div>
           </div>
         </div>
+        {/* Header */}
+        <div className="text-center text-white mb-12 mt-20">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4">🎓 AI 학습 단계별 가이드</h1>
+          <p className="text-xl md:text-2xl opacity-90">기초부터 실전까지, 단계별로 마스터하세요</p>
+        </div>
       </div>
-
-      <section
-        id="curriculum"
-        className="mx-auto max-w-7xl px-6 py-10 border-b border-[#C3CCD9]/60 bg-white"
-      >
-        <div className="flex flex-wrap items-center gap-16">
-          {curriculumSteps.map((step, index) => (
-            <div key={index} className="flex flex-col items-justify-start">
-              <button
-                onClick={() => handleStepClick(index)}
-                className={`
-                  w-[250px] px-6 py-3 rounded-lg font-bold text-lg transition-all duration-200
-                  ${
-                    step.completed
-                      ? 'bg-sky-500 text-white shadow-lg'
-                      : index === currentStep
-                        ? 'bg-blue-100 text-white-700 border-2 border-blue-300'
-                        : 'bg-white text-zinc-600 border-2 border-blue-200'
-                  }
-                  ${index === currentStep ? 'ring-4 ring-blue-300 ring-opacity-50' : ''}
-                `}
-              >
-                {step.title}
-              </button>
-
-              {/* 진행바는 활성화된 단계에서만 표시 */}
-              {activeStep === index && (
-                <div className="mt-[21px] flex flex-col items-center gap-2">
-                  <ProgressBar value={step.progress} width="w-64" />
+      <div className="max-w-6xl mx-auto pt-12">
+        {/* Progress Bar */}
+        <div className="bg-white rounded-2xl p-6 md:p-8 shadow-2xl mb-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            {stages.map((stage, index) => (
+              <React.Fragment key={stage.id}>
+                <div
+                  className={`flex-1 text-center cursor-pointer transition-all hover:-translate-y-2 ${
+                    activeStage === stage.id ? 'scale-110' : ''
+                  }`}
+                  onClick={() => scrollToStage(stage.id)}
+                >
+                  <div
+                    className={`text-6xl mb-3 ${activeStage === stage.id ? 'animate-bounce' : ''}`}
+                  >
+                    {stage.icon}
+                  </div>
+                  <div className="font-bold text-xl text-gray-800 mb-1">{stage.id}단계</div>
+                  <div className="text-gray-600">{stage.subtitle}</div>
                 </div>
-              )}
-            </div>
+                {index < stages.length - 1 && (
+                  <div className="hidden md:block flex-shrink-0 w-24 h-1 bg-gradient-to-r from-green-500 via-blue-500 to-purple-500 rounded-full" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="space-y-6">
+          {stages.map((stage, index) => (
+            <StageCard key={stage.id} stage={stage} stageRef={stageRefs[index]} />
           ))}
         </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          <UnitCard
-            title="AI란 무엇인가"
-            subtitle="AI란 무엇인가?"
-            bullets={['인공지능 vs 머신러닝 vs 딥러닝', 'AI가 하는 일은 무엇인가?']}
-            completed
-          />
-          <UnitCard
-            title="2. AI 테스크 종류"
-            subtitle="AI 테스크 종류"
-            bullets={[
-              '이미지 분류, 감정 분석, 추천 시스템',
-              '생성 AI(텍스트/이미지 등), 숫자 예측(회귀 등)',
-            ]}
-            completed
-          />
-          <UnitCard
-            title="3. AI 학습 흐름"
-            subtitle="AI 학습 흐름"
-            bullets={[
-              '데이터 수집 → 전처리 → 학습 → 예측 → 평가',
-              '지도학습 vs 비지도학습',
-              '모델 성능 평가 기준(정확도 등)',
-            ]}
-          />
-          <UnitCard
-            title="4. AI 모델 설명"
-            subtitle="AI 학습 흐름"
-            bullets={[
-              '데이터 수집 → 전처리 → 학습 → 예측 → 평가',
-              '지도학습 vs 비지도학습',
-              '모델 성능 평가 기준(정확도 등)',
-            ]}
-          />
-        </div>
-      </section>
-
-      <Footer />
+      </div>
     </div>
   );
 }
