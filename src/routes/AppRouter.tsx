@@ -10,6 +10,7 @@ import PublicRoute from './PublicRoute';
 
 import MainPage from '@/pages/Main';
 import EditorPage from '@/pages/Editor';
+import CurriculumPage from '@/pages/Curriculum';
 
 const createAuthRouter = (routeType: ROUTE_TYPE, children: RouteObject[]) => {
   const authRouter = children.map((child: RouteObject) => ({
@@ -23,7 +24,6 @@ const router = createBrowserRouter([
   {
     path: '/',
     element: (
-      // <Outlet />
       <UnknownErrorBoundary>
         <APIErrorBoundary>
           <Suspense fallback={<Loader />}>
@@ -44,7 +44,12 @@ const router = createBrowserRouter([
           element: <EditorPage />,
         },
         {
+          path: '/curriculum',
+          element: <CurriculumPage />,
+        },
+        {
           path: '/api-docs',
+          // 무거운 Swagger는 Lazy Loading 처리
           lazy: () => import('@/pages/ApiDocs').then(module => ({ Component: module.default })),
         },
       ]),

@@ -56,9 +56,9 @@ export default function Header({ onOpenIdModal }: HeaderProps) {
             API
           </button>
           <button
-            onClick={() => handleNavigation('/')}
+            onClick={() => handleNavigation('/curriculum')}
             className={`h-[72px] px-4 transition-all duration-200 ${
-              isActive('/')
+              isActive('/curriculum')
                 ? 'text-white border-b-2 border-white'
                 : 'text-white/80 hover:text-white hover:border-b-2 hover:border-white/60'
             }`}
